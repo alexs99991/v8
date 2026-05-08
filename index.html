@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Цели - Система Учета</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.10.0/proj4.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Roboto+Mono:wght@400;500&amp;display=swap');
+        :root {
+            --burgundy: #6B1E2A;
+            --light-gray: #F4F4F5;
+        }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #f8f9fa;
+        }
+        .header {
+            background: linear-gradient(135deg, #6B1E2A, #4A141E);
+        }
+        .nav-tab {
+            transition: all 0.2s;
+        }
+        .nav-tab.active {
+            border-bottom: 3px solid #6B1E2A;
+            color: #6B1E2A;
+            font-weight: 600;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+        .map-container {
+            height: 600px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .form-input {
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 10px 14px;
+        }
+        .legend {
+            background: rgba(255,255,255,0.95);
+            border-radius: 8px;
+        }
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body class="bg-zinc-100">
+    <div class="min-h-screen">
+        <!-- HEADER -->
+        <header class="header text-white py-4 shadow-lg">
+            <div class="max-w-7xl mx-auto px-6 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <i class="fa fa-crosshairs text-3xl"></i>
+                    <div>
+                        <h1 class="text-2xl font-semibold">Система Учета Целей</h1>
+                        <p class="text-sm opacity-75">SK-42 • Supabase • Leaflet</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-6 text-sm">
+                    <div onclick="switchTab(0)" class="nav-tab active cursor-pointer flex items-center gap-2" id="tab0">
+                        <i class="fa fa-plus"></i> Ввод
+                    </div>
+                    <div onclick="switchTab(1)" class="nav-tab cursor-pointer flex items-center gap-2" id="tab1">
+                        <i class="fa fa-chart-bar"></i> Аналитика
+                    </div>
+                    <div onclick="switchTab(2)" class="nav-tab cursor-pointer flex items-center gap-2" id="tab2">
+                        <i class="fa fa-map"></i> Карта
+                    </div>
+                    <div onclick="switchTab(3)" class="nav-tab cursor-pointer flex items-center gap-2" id="tab3">
+                        <i class="fa fa-list"></i> Список
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="max-w-7xl mx-auto px-6 py-8">
+            <!-- TAB 1: FORM -->
+            <div id="content0" class="tab-content">
+                <div class="card p-8 max-w-md mx-auto">
+                    <h2 class="text-2xl font-semibold text-gray-800 mb-6 flex items-center gap-3">
+                        <i class="fa fa-plus-circle text-[#6B1E2A]"></i> Добавить цель
+                    </h2>
+                    
+                    <div class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Дата</label>
+                            <input type="date" id="date" class="form-input w-full" value="">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Время</label>
+                            <input type="time" id="time" class="form-input w-full" value="">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">X (СК-42)</label>
+                                <input type="text" id="coordX" placeholder="5301923" class="form-input w-full font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Y (СК-42)</label>
+                                <input type="text" id="coordY" placeholder="6662759" class="form-input w-full font-mono">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Частота / Тип цели</label>
+                            <input type="text" id="targetType" placeholder="РЛС / Артиллерия / ..." class="form-input w-full">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Примечание</label>
+                            <textarea id="note" rows="3" class="form-input w-full"></textarea>
+                        </div>
+                        
+                        <button onclick="addTarget()" 
+                                class="w-full bg-[#6B1E2A] hover:bg-[#4A141E] text-white py-4 rounded-xl font-semibold text-lg flex items-center justify-center gap-2 transition">
+                            <i class="fa fa-save"></i> Добавить запись
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: DASHBOARD -->
+            <div id="content1" class="tab-content hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="card p-6">
+                        <div class="text-sm text-gray-500">Сегодня</div>
+                        <div id="todayCount" class="text-5xl font-bold text-[#6B1E2A]">0</div>
+                        <div class="text-xs text-green-600 mt-2">↑ 12% за неделю</div>
+                    </div>
+                    <div class="card p-6">
+                        <div class="text-sm text-gray-500">За неделю</div>
+                        <div id="weekCount" class="text-5xl font-bold text-[#6B1E2A]">0</div>
+                    </div>
+                    <div class="card p-6">
+                        <div class="text-sm text-gray-500">Всего целей</div>
+                        <div id="totalCount" class="text-5xl font-bold text-[#6B1E2A]">0</div>
+                    </div>
+                    <div class="card p-6">
+                        <div class="text-sm text-gray-500">Топ обнаруживший</div>
+                        <div id="topDiscoverer" class="text-2xl font-semibold mt-3">—</div>
+                    </div>
+                </div>
+                
+                <div class="mt-8 card p-6">
+                    <h3 class="font-semibold mb-4">Распределение по типам</h3>
+                    <div id="typeChart" class="h-64 flex items-end gap-8 justify-center">
+                        <!-- JS filled -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: MAP -->
+            <div id="content2" class="tab-content hidden">
+                <div class="flex justify-between items-end mb-4">
+                    <h2 class="text-2xl font-semibold">Карта (СК-42 → WGS84)</h2>
+                    <div class="flex gap-3">
+                        <button onclick="clearMap()" class="px-4 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50">
+                            Очистить карту
+                        </button>
+                        <button onclick="toggleDrawing()" id="drawBtn" class="px-4 py-2 text-sm bg-[#6B1E2A] text-white rounded-lg">
+                            Рисовать полигон
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="map" class="map-container shadow-xl"></div>
+                
+                <!-- Legend -->
+                <div class="legend p-4 mt-4 flex gap-8 text-sm shadow" id="legend">
+                    <div><span class="dot bg-red-500"></span> Артиллерия</div>
+                    <div><span class="dot bg-blue-500"></span> РЛС</div>
+                    <div><span class="dot bg-green-500"></span> Склады</div>
+                    <div><span class="dot bg-purple-500"></span> Другое</div>
+                </div>
+            </div>
+
+            <!-- TAB 4: LIST -->
+            <div id="content3" class="tab-content hidden">
+                <div class="card">
+                    <div class="p-6 border-b flex justify-between items-center">
+                        <h2 class="text-xl font-semibold">Все цели</h2>
+                        <input type="text" id="search" placeholder="Поиск..." 
+                               onkeyup="filterList()" class="form-input w-64">
+                    </div>
+                    <div id="targetList" class="divide-y max-h-[70vh] overflow-auto"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DETAIL MODAL -->
+    <div id="detailModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+        <div class="card max-w-lg w-full mx-4 p-8">
+            <div class="flex justify-between">
+                <h3 class="text-xl font-semibold" id="modalTitle"></h3>
+                <button onclick="closeModal()" class="text-2xl">&times;</button>
+            </div>
+            <div id="modalContent" class="mt-6 space-y-4"></div>
+            
+            <div class="flex gap-3 mt-8">
+                <button onclick="deleteCurrent()" class="flex-1 py-3 border border-red-500 text-red-600 rounded-xl">Удалить</button>
+                <button onclick="closeModal()" class="flex-1 py-3 bg-gray-800 text-white rounded-xl">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =============== CONFIG ===============
+        const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co'; // Замените на ваш URL
+        const SUPABASE_ANON_KEY = 'sb_publishable_NEb6KHHpx5aYLyEZl6U1OA_y68ZalLF';
+        
+        const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        let map, markers = [];
+        let currentDrawing = null;
+        let currentTargetId = null;
+        let allTargets = [];
+        
+        // SK-42 definitions (пример для зоны 7 - Украина)
+        proj4.defs("SK42", "+proj=tmerc +lat_0=0 +lon_0=39 +k=1 +x_0=500000 +y_0=0 +ellps=krass +towgs84=23.57,-140.95,-79.8,-0,-0.35,-0.79,-0.25 +units=m +no_defs");
+        proj4.defs("WGS84", "+proj=longlat +datum=WGS84 +no_defs");
+        
+        // =============== INIT ===============
+        function init() {
+            // Date defaults
+            const now = new Date();
+            document.getElementById('date').value = now.toISOString().split('T')[0];
+            document.getElementById('time').value = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+            
+            initMap();
+            loadTargets();
+            switchTab(0);
+        }
+        
+        // =============== MAP ===============
+        function initMap() {
+            map = L.map('map', {
+                zoomControl: true,
+                attributionControl: false
+            }).setView([47.8, 35.1], 10); // Центр Запорожья
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+            }).addTo(map);
+            
+            map.on('click', function(e) {
+                if (confirm('Добавить цель в этой точке?')) {
+                    // Обратная конверсия не нужна - клик уже WGS84
+                    const lat = e.latlng.lat;
+                    const lng = e.latlng.lng;
+                    // Для добавления через карту - создаём запись с приблизительными X/Y
+                    promptAndAddFromMap(lat, lng);
+                }
+            });
+        }
+        
+        async function promptAndAddFromMap(lat, lng) {
+            const x = prompt("Введите X (СК-42) или оставьте пустым", "");
+            const y = prompt("Введите Y (СК-42) или оставьте пустым", "");
+            const type = prompt("Тип цели", "Другое");
+            
+            if (x && y) {
+                await saveTarget({
+                    date: new Date().toISOString().split('T')[0],
+                    time: new Date().toTimeString().slice(0,5),
+                    x: parseFloat(x),
+                    y: parseFloat(y),
+                    type: type,
+                    note: `Добавлено с карты (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
+                    lat: lat,
+                    lng: lng
+                });
+            }
+        }
+        
+        function plotTargets() {
+            // Clear old
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+            
+            allTargets.forEach(target => {
+                if (!target.lat || !target.lng) return;
+                
+                const color = getColorByType(target.type);
+                
+                const marker = L.circleMarker([target.lat, target.lng], {
+                    radius: 8,
+                    fillColor: color,
+                    color: "#fff",
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.9
+                }).addTo(map);
+                
+                marker.bindPopup(`
+                    <b>${target.type}</b><br>
+                    ${target.date} ${target.time}<br>
+                    X:${target.x} Y:${target.y}<br>
+                    <small>${target.note || ''}</small>
+                `);
+                
+                marker.on('click', () => showDetail(target));
+                markers.push(marker);
+            });
+        }
+        
+        function getColorByType(type) {
+            const t = (type || '').toLowerCase();
+            if (t.includes('арт') || t.includes('артил')) return '#ef4444';
+            if (t.includes('рлс')) return '#3b82f6';
+            if (t.includes('склад')) return '#22c55e';
+            return '#8b5cf6';
+        }
+        
+        // =============== CRUD ===============
+        async function loadTargets() {
+            const { data, error } = await supabase
+                .from('targets')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (error) {
+                console.error(error);
+                alert('Ошибка загрузки из Supabase. Проверьте настройки таблицы.');
+                return;
+            }
+            
+            allTargets = data || [];
+            renderList();
+            plotTargets();
+            updateDashboard();
+        }
+        
+        async function saveTarget(data) {
+            // Convert SK42 to WGS84
+            let lat = data.lat, lng = data.lng;
+            if (data.x && data.y) {
+                try {
+                    const wgs = proj4("SK42", "WGS84", [parseFloat(data.x), parseFloat(data.y)]);
+                    lng = wgs[0];
+                    lat = wgs[1];
+                } catch(e) {
+                    console.warn("Conversion error", e);
+                }
+            }
+            
+            const payload = {
+                date: data.date,
+                time: data.time,
+                x: parseFloat(data.x),
+                y: parseFloat(data.y),
+                type: data.type,
+                note: data.note,
+                lat: lat,
+                lng: lng
+            };
+            
+            const { error } = await supabase
+                .from('targets')
+                .insert([payload]);
+            
+            if (error) {
+                alert('Ошибка сохранения: ' + error.message);
+            } else {
+                alert('Цель добавлена!');
+                loadTargets();
+            }
+        }
+        
+        async function addTarget() {
+            const date = document.getElementById('date').value;
+            const time = document.getElementById('time').value;
+            const x = document.getElementById('coordX').value;
+            const y = document.getElementById('coordY').value;
+            const type = document.getElementById('targetType').value || 'Неизвестно';
+            const note = document.getElementById('note').value;
+            
+            if (!x || !y) {
+                alert('Введите координаты X и Y!');
+                return;
+            }
+            
+            await saveTarget({date, time, x, y, type, note});
+            
+            // Clear form
+            document.getElementById('coordX').value = '';
+            document.getElementById('coordY').value = '';
+            document.getElementById('targetType').value = '';
+            document.getElementById('note').value = '';
+        }
+        
+        async function deleteTarget(id) {
+            if (!confirm('Удалить цель?')) return;
+            
+            const { error } = await supabase
+                .from('targets')
+                .delete()
+                .eq('id', id);
+            
+            if (error) alert(error.message);
+            else loadTargets();
+        }
+        
+        // =============== UI ===============
+        function switchTab(n) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('content' + n).classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-tab').forEach((el, i) => {
+                el.classList.toggle('active', i === n);
+            });
+            
+            if (n === 2) setTimeout(() => map.invalidateSize(), 100);
+        }
+        
+        function renderList(filtered = null) {
+            const container = document.getElementById('targetList');
+            const data = filtered || allTargets;
+            
+            let html = '';
+            data.forEach(t => {
+                html += `
+                <div onclick="showDetailById('${t.id}')" class="p-5 hover:bg-zinc-50 cursor-pointer flex justify-between items-center">
+                    <div>
+                        <div class="font-medium">${t.type}</div>
+                        <div class="text-sm text-gray-500">${t.date} ${t.time} • X:${t.x} Y:${t.y}</div>
+                    </div>
+                    <button onclick="event.stopImmediatePropagation(); deleteTarget('${t.id}');" 
+                            class="text-red-500 hover:text-red-700">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                </div>`;
+            });
+            container.innerHTML = html || '<div class="p-8 text-center text-gray-400">Нет записей</div>';
+        }
+        
+        function filterList() {
+            const term = document.getElementById('search').value.toLowerCase();
+            const filtered = allTargets.filter(t => 
+                (t.type || '').toLowerCase().includes(term) || 
+                (t.note || '').toLowerCase().includes(term)
+            );
+            renderList(filtered);
+        }
+        
+        function showDetail(target) {
+            currentTargetId = target.id;
+            document.getElementById('modalTitle').textContent = target.type;
+            
+            let html = `
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div><span class="font-medium">Дата:</span> ${target.date}</div>
+                    <div><span class="font-medium">Время:</span> ${target.time}</div>
+                    <div><span class="font-medium">X:</span> ${target.x}</div>
+                    <div><span class="font-medium">Y:</span> ${target.y}</div>
+                </div>
+                <div class="mt-4">
+                    <span class="font-medium">Примечание:</span><br>
+                    <div class="bg-zinc-50 p-3 rounded-lg text-sm">${target.note || '—'}</div>
+                </div>
+                <div class="mt-4 text-xs text-gray-400">
+                    Координаты WGS84: ${target.lat?.toFixed(6)}, ${target.lng?.toFixed(6)}
+                </div>
+            `;
+            document.getElementById('modalContent').innerHTML = html;
+            document.getElementById('detailModal').classList.remove('hidden');
+        }
+        
+        function showDetailById(id) {
+            const target = allTargets.find(t => t.id === id);
+            if (target) showDetail(target);
+        }
+        
+        function closeModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+        }
+        
+        async function deleteCurrent() {
+            if (currentTargetId) {
+                await deleteTarget(currentTargetId);
+                closeModal();
+            }
+        }
+        
+        function updateDashboard() {
+            const total = allTargets.length;
+            document.getElementById('totalCount').textContent = total;
+            
+            // Today
+            const today = new Date().toISOString().split('T')[0];
+            const todayC = allTargets.filter(t => t.date === today).length;
+            document.getElementById('todayCount').textContent = todayC;
+            
+            // Week (simple)
+            const weekC = allTargets.length; // placeholder
+            document.getElementById('weekCount').textContent = weekC;
+            
+            // Types
+            const types = {};
+            allTargets.forEach(t => {
+                const key = t.type || 'Другое';
+                types[key] = (types[key] || 0) + 1;
+            });
+            
+            let chartHTML = '';
+            Object.keys(types).forEach(key => {
+                const percent = Math.round(types[key] / total * 100) || 0;
+                chartHTML += `
+                    <div class="text-center">
+                        <div class="text-4xl font-bold text-[#6B1E2A]">${types[key]}</div>
+                        <div class="text-xs mt-1">${key}</div>
+                        <div class="h-2 bg-gray-200 rounded mt-2">
+                            <div class="h-2 bg-[#6B1E2A] rounded" style="width:${percent}%"></div>
+                        </div>
+                    </div>`;
+            });
+            document.getElementById('typeChart').innerHTML = chartHTML || '<p class="text-gray-400">Нет данных</p>';
+        }
+        
+        function clearMap() {
+            if (confirm('Удалить все маркеры с карты? (данные в БД останутся)')) {
+                markers.forEach(m => map.removeLayer(m));
+                markers = [];
+            }
+        }
+        
+        function toggleDrawing() {
+            alert('Рисование полигонов/маршрутов — используйте Leaflet.Draw (добавьте библиотеку самостоятельно).');
+            // Для полной реализации подключите leaflet.draw
+        }
+        
+        // =============== START ===============
+        window.onload = init;
+    </script>
+</body>
+</html>
